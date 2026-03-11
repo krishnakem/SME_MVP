@@ -2,16 +2,13 @@
 Silicon Sandbox MVP — Proof-of-Concept CLI
 
 Simulates incumbent retaliation to SME competitive moves using LLM-based agents
-configured with varying levels of representational complexity (Csaszar & Ostler, 2020).
+configured with varying levels of representational complexity.
 
 Each agent embodies a different cognitive profile — simple, moderate, or complex —
 that shapes how it perceives competitive threats and formulates responses. This is
-grounded in the strategic representations research program (Csaszar, 2018; Csaszar &
-Levinthal, 2016), which demonstrates that a decision-maker's mental model of competition
+grounded in the strategic representations research program, 
+which demonstrates that a decision-maker's mental model of competition
 determines the strategic choices they make.
-
-Reference: Kemisetti, K. (2026). "Leveraging LLM-Based Silicon Humans to Predict
-Incumbent Retaliation to Small and Medium Enterprise Decisions." University of Michigan.
 """
 
 from __future__ import annotations
@@ -22,7 +19,6 @@ import os
 import sys
 import textwrap
 from dataclasses import dataclass
-from typing import Optional
 
 from openai import OpenAI
 
@@ -53,10 +49,9 @@ class Prediction:
 
 # ---------------------------------------------------------------------------
 # Cognitive profiles — grounded in representational complexity framework
-# (Csaszar, 2018; Csaszar & Ostler, 2020)
 #
-# The key insight from this research is that strategic decisions are shaped by
-# how the decision-maker mentally represents the competitive landscape. Agents
+# The key insight is that strategic decisions are shaped by how the
+# decision-maker mentally represents the competitive landscape. Agents
 # with simpler representations consider fewer dimensions and update slowly;
 # agents with complex representations consider many interacting factors but
 # may overcomplicate simple situations.
@@ -134,42 +129,10 @@ COGNITIVE_PROFILES = {
 
 
 # ---------------------------------------------------------------------------
-# Default demo scenario — local restaurant market (see mvp_prompt.md)
+# Default scenario file path
 # ---------------------------------------------------------------------------
 
-DEFAULT_SCENARIO = {
-    "environment": {
-        "industry": "Local restaurant market in a mid-sized college town",
-        "market_structure": (
-            "The market consists of national fast-casual chains with significant "
-            "brand recognition and purchasing power, alongside independent local "
-            "restaurants. The college student demographic (~40,000 students) is a "
-            "key revenue segment, especially during the academic year."
-        ),
-        "incumbents": [
-            {
-                "name": "NationalBurger Co.",
-                "description": (
-                    "A national fast-casual chain with 15 locations in the metro "
-                    "area. Annual revenue ~$25M locally. Known for consistent "
-                    "quality, aggressive local marketing, and loyalty programs. "
-                    "Corporate-backed with centralized pricing decisions. Has "
-                    "responded to past competitors primarily through promotional "
-                    "discounts and increased advertising spend."
-                ),
-            }
-        ],
-    },
-    "sme_move": {
-        "description": (
-            "A local restaurant launches a lunch combo priced 30% below "
-            "NationalBurger Co.'s equivalent offering, specifically targeting "
-            "the college student demographic with campus delivery and social "
-            "media marketing."
-        ),
-        "move_type": "Price undercut with demographic targeting",
-    },
-}
+SCENARIO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_scenario.json")
 
 
 # ---------------------------------------------------------------------------
@@ -180,8 +143,7 @@ def build_system_prompt(agent: AgentConfig) -> str:
     """
     Construct the full system prompt for an incumbent agent.
 
-    The prompt has three layers, following the agent configuration design from
-    the Silicon Sandbox research proposal (Chapter 4):
+    The prompt has three layers:
       1. Role framing — the agent acts as a decision-maker at the incumbent firm.
       2. Firm persona — industry position, size, competitive history.
       3. Cognitive profile — representational complexity constraints that shape
@@ -400,8 +362,7 @@ def display_results(predictions: list[Prediction]) -> None:
                     "  that representational complexity affects degree, not direction."
                 )
 
-    print(f"\n  Theoretical basis: Csaszar (2018), Csaszar & Ostler (2020)")
-    print(f"  Framework: Silicon Sandbox (Kemisetti, 2026)")
+    print(f"\n  Framework: Silicon Sandbox")
     print(f"\n{SEPARATOR}\n")
 
 
@@ -415,10 +376,8 @@ def _wrap(text: str, width: int) -> str:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-def load_scenario(path: Optional[str]) -> dict:
-    """Load scenario from a JSON file, or return the default demo scenario."""
-    if path is None:
-        return DEFAULT_SCENARIO
+def load_scenario(path: str) -> dict:
+    """Load scenario from a JSON file."""
     with open(path, "r") as f:
         return json.load(f)
 
@@ -429,13 +388,6 @@ def main():
             "Silicon Sandbox MVP — Simulate incumbent retaliation to SME moves "
             "using LLM agents with varying representational complexity."
         ),
-    )
-    parser.add_argument(
-        "--scenario",
-        type=str,
-        default=None,
-        help="Path to a JSON file describing the competitive scenario. "
-             "If omitted, runs the built-in demo scenario.",
     )
     parser.add_argument(
         "--model",
@@ -455,13 +407,8 @@ def main():
     client = OpenAI(api_key=api_key)
 
     # Load scenario
-    scenario = load_scenario(args.scenario)
-
-    if args.scenario:
-        print(f"\nLoading scenario from: {args.scenario}")
-    else:
-        print("\nRunning default demo scenario (local restaurant market).")
-        print("Use --scenario <file.json> to provide a custom scenario.\n")
+    print(f"\nLoading scenario from: {SCENARIO_PATH}")
+    scenario = load_scenario(SCENARIO_PATH)
 
     # Create agents and run simulation
     agents = create_agents(scenario)
