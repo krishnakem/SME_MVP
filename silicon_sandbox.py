@@ -47,6 +47,14 @@ class Prediction:
     reasoning: str
 
 
+@dataclass
+class SMEAdjustment:
+    """Structured adjustment from the SME agent in multi-round simulation."""
+    adjusted_move: str
+    move_type: str
+    reasoning: str
+
+
 # ---------------------------------------------------------------------------
 # Cognitive profiles — grounded in representational complexity framework
 #
@@ -126,6 +134,37 @@ COGNITIVE_PROFILES = {
         When reasoning, consider the full range of strategic dimensions and their
         interactions. Model the competitor's trajectory, not just their current move."""),
 }
+
+
+# ---------------------------------------------------------------------------
+# SME agent system prompt — used in multi-round simulations
+# ---------------------------------------------------------------------------
+
+SME_AGENT_PROMPT = textwrap.dedent("""\
+    You are a small business owner / entrepreneur who has just entered a
+    competitive market. You made an initial competitive move and the incumbent
+    has responded. Your job is to evaluate the incumbent's response and decide
+    your next move.
+
+    Consider these options:
+    - CONTINUE: stay the course with your current strategy
+    - ADJUST: modify your approach based on the incumbent's response
+    - ESCALATE: intensify your competitive pressure
+    - RETREAT: pull back from direct competition
+    - PIVOT: shift to a completely different competitive approach
+
+    You are resourceful but resource-constrained. You cannot match the
+    incumbent dollar-for-dollar, but you can be creative, fast, and targeted.
+
+    RESPONSE FORMAT:
+    You must respond with valid JSON and nothing else. Use this exact structure:
+    {
+        "adjusted_move": "<1-2 sentences describing what you do next>",
+        "move_type": "<short label for your move>",
+        "reasoning": "<2-3 sentences explaining why you chose this response>"
+    }
+
+    Respond ONLY with the JSON object.""")
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +297,107 @@ def query_agent(client: OpenAI, model: str, agent: AgentConfig, scenario: dict) 
     )
 
 
+def query_agent_with_history(
+    client: OpenAI, model: str, agent: AgentConfig, messages: list[dict],
+) -> tuple[Prediction, list[dict]]:
+    """
+    Query an incumbent agent using a full conversation history.
+
+    Returns the prediction and the updated messages list (with the new
+    assistant response appended) so subsequent rounds can build on it.
+    """
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        max_completion_tokens=4096,
+    )
+
+    content = response.choices[0].message.content
+    raw = (content or "").strip()
+
+    # Strip markdown code fences if present
+    if raw.startswith("```"):
+        lines = raw.split("\n")
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        raw = "\n".join(lines)
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        data = {
+            "response_type": "parse_error",
+            "intensity": 0,
+            "timing": "unknown",
+            "reasoning": f"Failed to parse JSON: {raw[:300]}",
+        }
+
+    # Append assistant response to history for future rounds
+    updated_messages = messages + [{"role": "assistant", "content": raw}]
+
+    return Prediction(
+        agent_name=agent.name,
+        complexity=agent.complexity,
+        response_type=data.get("response_type", "unknown"),
+        intensity=int(data.get("intensity", 0)),
+        timing=data.get("timing", "unknown"),
+        reasoning=data.get("reasoning", ""),
+    ), updated_messages
+
+
+def query_sme_agent(
+    client: OpenAI, model: str, scenario: dict, incumbent_prediction: Prediction,
+) -> SMEAdjustment:
+    """
+    Query the SME agent to decide its next move based on the incumbent's response.
+    """
+    move = scenario["sme_move"]
+    user_message = textwrap.dedent(f"""\
+        YOUR ORIGINAL MOVE:
+        {move['description']}
+        Move Type: {move['move_type']}
+
+        THE INCUMBENT'S RESPONSE:
+        Incumbent: {incumbent_prediction.agent_name}
+        Response Type: {incumbent_prediction.response_type}
+        Intensity: {incumbent_prediction.intensity}/5
+        Timing: {incumbent_prediction.timing}
+        Reasoning: {incumbent_prediction.reasoning}
+
+        Given this response, what is your next move? Respond as JSON.""")
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "developer", "content": SME_AGENT_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        max_completion_tokens=4096,
+    )
+
+    content = response.choices[0].message.content
+    raw = (content or "").strip()
+
+    if raw.startswith("```"):
+        lines = raw.split("\n")
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        raw = "\n".join(lines)
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return SMEAdjustment(
+            adjusted_move=f"[Parse error: {raw[:200]}]",
+            move_type="error",
+            reasoning="Failed to parse SME agent response.",
+        )
+
+    return SMEAdjustment(
+        adjusted_move=data.get("adjusted_move", ""),
+        move_type=data.get("move_type", ""),
+        reasoning=data.get("reasoning", ""),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Agent factory
 # ---------------------------------------------------------------------------
@@ -288,28 +428,71 @@ def create_agents(scenario: dict) -> list[AgentConfig]:
 # ---------------------------------------------------------------------------
 
 SEPARATOR = "=" * 78
+ROUND_SEP = "─" * 74
+
+
+def _complexity_label(complexity: str) -> str:
+    return {"simple": "LOW", "moderate": "MODERATE", "complex": "HIGH"}.get(
+        complexity, complexity.upper()
+    )
+
+
+def _display_prediction(pred: Prediction) -> None:
+    """Print a single agent prediction block."""
+    print(f"  Agent: {pred.agent_name}  |  Complexity: {_complexity_label(pred.complexity)}")
+    print(f"  {'-' * 50}")
+    print(f"  Response Type : {pred.response_type}")
+    print(f"  Intensity     : {'█' * pred.intensity}{'░' * (5 - pred.intensity)} ({pred.intensity}/5)")
+    print(f"  Timing        : {pred.timing}")
+    print(f"  Reasoning     : {_wrap(pred.reasoning, 60)}")
+    print()
+
 
 def display_results(predictions: list[Prediction]) -> None:
-    """Print a structured comparison of agent predictions."""
+    """Print a structured comparison of agent predictions (single-round)."""
 
     print(f"\n{SEPARATOR}")
     print("  SILICON SANDBOX — INCUMBENT RETALIATION PREDICTIONS")
     print(f"{SEPARATOR}\n")
 
     for pred in predictions:
-        complexity_label = {
-            "simple": "LOW",
-            "moderate": "MODERATE",
-            "complex": "HIGH",
-        }.get(pred.complexity, pred.complexity.upper())
+        _display_prediction(pred)
 
-        print(f"  Agent: {pred.agent_name}  |  Complexity: {complexity_label}")
-        print(f"  {'-' * 50}")
-        print(f"  Response Type : {pred.response_type}")
-        print(f"  Intensity     : {'█' * pred.intensity}{'░' * (5 - pred.intensity)} ({pred.intensity}/5)")
-        print(f"  Timing        : {pred.timing}")
-        print(f"  Reasoning     : {_wrap(pred.reasoning, 60)}")
+    print(f"{SEPARATOR}\n")
+
+
+def display_multiround_results(
+    num_rounds: int,
+    round_data: list[dict],
+) -> None:
+    """
+    Print multi-round simulation results.
+
+    round_data is a list of dicts, one per round. Each dict has:
+      - "sme_move": str (description of SME move/adjustment for this round)
+      - "predictions": list of (SMEAdjustment | None, Prediction) tuples
+        In round 1 the SMEAdjustment is None.
+    """
+    print(f"\n{SEPARATOR}")
+    print(f"  SILICON SANDBOX — MULTI-ROUND SIMULATION ({num_rounds} rounds)")
+    print(f"{SEPARATOR}")
+
+    for round_num, rd in enumerate(round_data, 1):
+        print(f"\n  ── ROUND {round_num} {ROUND_SEP[len(f' ROUND {round_num} '):]}")
         print()
+
+        if round_num == 1:
+            print(f"  SME Move: {rd['sme_move']}")
+            print()
+            for pred in rd["predictions"]:
+                _display_prediction(pred)
+        else:
+            for adjustment, pred in rd["predictions"]:
+                label = _complexity_label(pred.complexity)
+                print(f"  SME Adjustment (responding to {label} incumbent): {adjustment.adjusted_move}")
+                print(f"  SME Reasoning: {_wrap(adjustment.reasoning, 60)}")
+                print()
+                _display_prediction(pred)
 
     print(f"{SEPARATOR}\n")
 
@@ -343,6 +526,13 @@ def main():
         default="gpt-5",
         help="OpenAI model to use (default: gpt-5).",
     )
+    parser.add_argument(
+        "--rounds",
+        type=int,
+        default=1,
+        help="Number of simulation rounds (default: 1). Multi-round simulations "
+             "add SME agent reactions and incumbent follow-up responses.",
+    )
     args = parser.parse_args()
 
     # Validate API key
@@ -360,17 +550,113 @@ def main():
 
     # Create agents and run simulation
     agents = create_agents(scenario)
-    print(f"Simulating {len(agents)} agent configuration(s) using {args.model}...\n")
+    num_rounds = max(1, args.rounds)
 
-    predictions = []
-    for agent in agents:
-        label = f"  [{agent.complexity.upper():>8}] {agent.name}"
-        print(f"{label} — querying...", end="", flush=True)
-        pred = query_agent(client, args.model, agent, scenario)
-        print(f" → {pred.response_type} (intensity {pred.intensity}/5)")
-        predictions.append(pred)
+    if num_rounds == 1:
+        # --- Single-round mode (original behavior) ---
+        print(f"Simulating {len(agents)} agent configuration(s) using {args.model}...\n")
 
-    display_results(predictions)
+        predictions = []
+        for agent in agents:
+            label = f"  [{agent.complexity.upper():>8}] {agent.name}"
+            print(f"{label} — querying...", end="", flush=True)
+            pred = query_agent(client, args.model, agent, scenario)
+            print(f" → {pred.response_type} (intensity {pred.intensity}/5)")
+            predictions.append(pred)
+
+        display_results(predictions)
+    else:
+        # --- Multi-round mode ---
+        print(
+            f"Simulating {len(agents)} agent(s) × {num_rounds} rounds "
+            f"using {args.model}...\n"
+        )
+
+        system_prompt = build_system_prompt(agents[0])  # rebuilt per-agent below
+        user_message = build_user_message(scenario)
+
+        # Per-agent conversation histories: agent index → messages list
+        histories: dict[int, list[dict]] = {}
+        round_data: list[dict] = []
+
+        for round_num in range(1, num_rounds + 1):
+            print(f"  ── Round {round_num} of {num_rounds} ──")
+
+            if round_num == 1:
+                # Round 1: same as single-round but track history
+                predictions = []
+                for i, agent in enumerate(agents):
+                    label = f"    [{agent.complexity.upper():>8}] {agent.name}"
+                    print(f"{label} — querying...", end="", flush=True)
+
+                    messages = [
+                        {"role": "developer", "content": build_system_prompt(agent)},
+                        {"role": "user", "content": user_message},
+                    ]
+                    pred, updated = query_agent_with_history(
+                        client, args.model, agent, messages
+                    )
+                    histories[i] = updated
+                    predictions.append(pred)
+                    print(f" → {pred.response_type} (intensity {pred.intensity}/5)")
+
+                round_data.append({
+                    "sme_move": scenario["sme_move"]["description"],
+                    "predictions": predictions,
+                })
+            else:
+                # Round 2+: SME adjusts per-agent, then incumbent responds
+                prev_predictions = round_data[-1]["predictions"]
+                # In round 1, predictions is a flat list; in round 2+ it's
+                # list of (adjustment, prediction) tuples.
+                if round_num == 2:
+                    prev_preds = prev_predictions
+                else:
+                    prev_preds = [p for _, p in prev_predictions]
+
+                round_entries = []
+                for i, agent in enumerate(agents):
+                    prev_pred = prev_preds[i]
+                    label = f"    [{agent.complexity.upper():>8}] {agent.name}"
+
+                    # SME agent decides next move
+                    print(f"{label} — SME adjusting...", end="", flush=True)
+                    adjustment = query_sme_agent(
+                        client, args.model, scenario, prev_pred
+                    )
+                    print(f" → {adjustment.move_type}")
+
+                    # Add SME adjustment to incumbent's conversation history
+                    sme_follow_up = (
+                        f"The SME has responded to your action. Here is their next move:\n\n"
+                        f"SME Adjustment: {adjustment.adjusted_move}\n"
+                        f"Move Type: {adjustment.move_type}\n"
+                        f"Reasoning: {adjustment.reasoning}\n\n"
+                        f"Given this new development, what is your updated response? "
+                        f"Respond as JSON."
+                    )
+                    histories[i] = histories[i] + [
+                        {"role": "user", "content": sme_follow_up}
+                    ]
+
+                    # Incumbent responds
+                    print(f"{label} — responding...", end="", flush=True)
+                    pred, updated = query_agent_with_history(
+                        client, args.model, agent, histories[i]
+                    )
+                    histories[i] = updated
+                    print(f" → {pred.response_type} (intensity {pred.intensity}/5)")
+
+                    round_entries.append((adjustment, pred))
+
+                round_data.append({
+                    "sme_move": None,
+                    "predictions": round_entries,
+                })
+
+            print()
+
+        display_multiround_results(num_rounds, round_data)
 
 
 if __name__ == "__main__":

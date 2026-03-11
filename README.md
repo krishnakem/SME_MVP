@@ -29,6 +29,19 @@ Switch the underlying LLM (default: `gpt-5`):
 python silicon_sandbox.py --model gpt-5-mini
 ```
 
+### Multi-Round Simulation
+
+Run multiple rounds of competitive interaction where the SME and incumbents react to each other:
+
+```bash
+python silicon_sandbox.py --rounds 3
+```
+
+In multi-round mode:
+- **Round 1** runs the same as the default single-round simulation.
+- **Round 2+** introduces an SME agent that evaluates each incumbent's previous response and decides its next move (continue, adjust, escalate, retreat, or pivot). Each incumbent then responds to the SME's adjustment with full conversation history carried forward.
+- Since the SME reacts differently to each incumbent's response, each complexity level becomes its own independent interaction chain from Round 2 onward. This shows how the incumbent's cognitive configuration shapes the entire trajectory of the competitive interaction.
+
 ### Scenario Format
 
 See `demo_scenario.json` for the expected structure:
