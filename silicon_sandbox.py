@@ -221,14 +221,14 @@ def query_agent(client: OpenAI, model: str, agent: AgentConfig, scenario: dict) 
     response = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": system_prompt},
+            {"role": "developer", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        temperature=0.7,
-        max_tokens=500,
+        max_completion_tokens=4096,
     )
 
-    raw = response.choices[0].message.content.strip()
+    content = response.choices[0].message.content
+    raw = (content or "").strip()
 
     # Strip markdown code fences if present
     if raw.startswith("```"):
@@ -239,14 +239,13 @@ def query_agent(client: OpenAI, model: str, agent: AgentConfig, scenario: dict) 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        # Fallback: return raw text as reasoning if JSON parsing fails
         return Prediction(
             agent_name=agent.name,
             complexity=agent.complexity,
             response_type="parse_error",
             intensity=0,
             timing="unknown",
-            reasoning=f"Failed to parse agent response: {raw[:300]}",
+            reasoning=f"Failed to parse JSON: {raw[:300]}",
         )
 
     return Prediction(
@@ -312,58 +311,7 @@ def display_results(predictions: list[Prediction]) -> None:
         print(f"  Reasoning     : {_wrap(pred.reasoning, 60)}")
         print()
 
-    # Summary comparison
-    print(f"{SEPARATOR}")
-    print("  COMPARISON SUMMARY")
     print(f"{SEPARATOR}\n")
-    print(
-        "  The predictions above show how representational complexity — the"
-    )
-    print(
-        "  breadth of strategic dimensions an agent considers — changes the"
-    )
-    print("  predicted incumbent response to the same SME move.\n")
-
-    if len(predictions) >= 3:
-        simple = next((p for p in predictions if p.complexity == "simple"), None)
-        moderate = next((p for p in predictions if p.complexity == "moderate"), None)
-        complex_ = next((p for p in predictions if p.complexity == "complex"), None)
-
-        if simple and moderate and complex_:
-            print(f"  • LOW complexity agent predicts: {simple.response_type} "
-                  f"(intensity {simple.intensity}/5, {simple.timing})")
-            print(f"  • MODERATE complexity agent predicts: {moderate.response_type} "
-                  f"(intensity {moderate.intensity}/5, {moderate.timing})")
-            print(f"  • HIGH complexity agent predicts: {complex_.response_type} "
-                  f"(intensity {complex_.intensity}/5, {complex_.timing})")
-
-            print()
-            if simple.response_type != complex_.response_type:
-                print(
-                    "  Key finding: The agents with different cognitive configurations"
-                )
-                print(
-                    "  produced DIFFERENT response types, illustrating how the mental"
-                )
-                print(
-                    "  model of the decision-maker shapes the strategic response."
-                )
-            else:
-                print(
-                    "  Key finding: Despite different cognitive configurations, the"
-                )
-                print(
-                    "  agents converged on the same response type, though intensity"
-                )
-                print(
-                    "  and timing differ — suggesting the move is unambiguous enough"
-                )
-                print(
-                    "  that representational complexity affects degree, not direction."
-                )
-
-    print(f"\n  Framework: Silicon Sandbox")
-    print(f"\n{SEPARATOR}\n")
 
 
 def _wrap(text: str, width: int) -> str:
@@ -392,8 +340,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4o",
-        help="OpenAI model to use (default: gpt-4o).",
+        default="gpt-5",
+        help="OpenAI model to use (default: gpt-5).",
     )
     args = parser.parse_args()
 

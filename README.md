@@ -23,10 +23,10 @@ The simulation loads its scenario from `demo_scenario.json` in the same director
 
 ### Model Selection
 
-Switch the underlying LLM (default: `gpt-4o`):
+Switch the underlying LLM (default: `gpt-5`):
 
 ```bash
-python silicon_sandbox.py --model gpt-4o-mini
+python silicon_sandbox.py --model gpt-5-mini
 ```
 
 ### Scenario Format
@@ -55,9 +55,7 @@ For each agent, the output shows:
 - **Timing**: immediate, short-term, or long-term
 - **Reasoning**: 2–3 sentences explaining the agent's assessment
 
-The comparison summary highlights whether different cognitive configurations produced different strategic responses.
-
 ## Requirements
 
-- Python 3.10+
-- OpenAI API key with access to `gpt-4o` (or chosen model)
+- Python 3.9+
+- OpenAI API key with access to `gpt-5` (or chosen model)
