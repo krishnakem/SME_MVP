@@ -1,0 +1,16 @@
+{
+    "environment": {
+        "industry": "Local restaurant market in a mid-sized college town",
+        "market_structure": "The market consists of national fast-casual chains with significant brand recognition and purchasing power, alongside independent local restaurants. The college student demographic (~40,000 students) is a key revenue segment, especially during the academic year.",
+        "incumbents": [
+            {
+                "name": "NationalBurger Co.",
+                "description": "A national fast-casual chain with 15 locations in the metro area. Annual revenue ~$25M locally. Known for consistent quality, aggressive local marketing, and loyalty programs. Corporate-backed with centralized pricing decisions. Has responded to past competitors primarily through promotional discounts and increased advertising spend."
+            }
+        ]
+    },
+    "sme_move": {
+        "description": "A local restaurant launches a lunch combo priced 30% below NationalBurger Co.'s equivalent offering, specifically targeting the college student demographic with campus delivery and social media marketing.",
+        "move_type": "Price undercut with demographic targeting"
+    }
+}
