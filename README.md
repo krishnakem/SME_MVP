@@ -8,13 +8,13 @@ LLM-based agents, each configured with a different level of *representational co
 
 ```bash
 # 1. Install dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 # 2. Set your OpenAI API key
 export OPENAI_API_KEY='your-key-here'
 
 # 3. Run the simulation
-python silicon_sandbox.py
+python3 silicon_sandbox.py
 ```
 
 ## Usage
@@ -26,7 +26,7 @@ The simulation loads its scenario from `demo_scenario.json` in the same director
 Switch the underlying LLM (default: `gpt-5`):
 
 ```bash
-python silicon_sandbox.py --model gpt-5-mini
+python3 silicon_sandbox.py --model gpt-5-mini
 ```
 
 ### Multi-Round Simulation
@@ -34,7 +34,7 @@ python silicon_sandbox.py --model gpt-5-mini
 Run multiple rounds of competitive interaction where the SME and incumbents react to each other:
 
 ```bash
-python silicon_sandbox.py --rounds 3
+python3 silicon_sandbox.py --rounds 3
 ```
 
 In multi-round mode:
