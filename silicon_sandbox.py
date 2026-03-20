@@ -19,6 +19,10 @@ import os
 import sys
 import textwrap
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
+from fpdf import FPDF
 
 from openai import OpenAI
 
@@ -504,6 +508,164 @@ def _wrap(text: str, width: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# PDF report generation
+# ---------------------------------------------------------------------------
+
+def _sanitize(text: str) -> str:
+    """Replace Unicode characters unsupported by core PDF fonts with ASCII equivalents."""
+    replacements = {
+        "\u2014": "--",   # em dash
+        "\u2013": "-",    # en dash
+        "\u2018": "'",    # left single quote
+        "\u2019": "'",    # right single quote
+        "\u201c": '"',    # left double quote
+        "\u201d": '"',    # right double quote
+        "\u2026": "...",  # ellipsis
+        "\u2022": "*",    # bullet
+        "\u00a0": " ",    # non-breaking space
+    }
+    for char, repl in replacements.items():
+        text = text.replace(char, repl)
+    # Fallback: replace any remaining non-latin-1 characters
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
+def _get_report_path() -> str:
+    """Return a timestamped PDF path in ~/Downloads."""
+    downloads = Path.home() / "Downloads"
+    downloads.mkdir(exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return str(downloads / f"silicon_sandbox_report_{ts}.pdf")
+
+
+def _pdf_add_prediction(pdf: FPDF, pred: Prediction) -> None:
+    """Add a single prediction block to the PDF."""
+    label = _complexity_label(pred.complexity)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, _sanitize(f"{pred.agent_name}  |  Complexity: {label}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+
+    intensity_bar = "#" * pred.intensity + "-" * (5 - pred.intensity)
+    lines = [
+        f"Response Type:  {pred.response_type}",
+        f"Intensity:  [{intensity_bar}]  ({pred.intensity}/5)",
+        f"Timing:  {pred.timing}",
+    ]
+    for line in lines:
+        pdf.cell(0, 6, _sanitize(f"    {line}"), new_x="LMARGIN", new_y="NEXT")
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, "    Reasoning:", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(pdf.l_margin + 20)
+    pdf.multi_cell(0, 5, _sanitize(pred.reasoning))
+    pdf.ln(4)
+
+
+def generate_pdf_report(predictions: list[Prediction], scenario: dict) -> None:
+    """Generate a PDF report for single-round simulation results."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=20)
+
+    # Title
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "Silicon Sandbox", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("Helvetica", "", 12)
+    pdf.cell(0, 8, "Incumbent Retaliation Predictions", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(4)
+
+    # Scenario summary
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, "Scenario", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, _sanitize(f"Industry: {scenario['environment']['industry']}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, "SME Move:", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(pdf.l_margin + 10)
+    pdf.multi_cell(0, 5, _sanitize(scenario["sme_move"]["description"]))
+    pdf.ln(6)
+
+    # Divider
+    pdf.set_draw_color(100, 100, 100)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+    pdf.ln(6)
+
+    # Predictions
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(0, 8, "Predictions", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    for pred in predictions:
+        _pdf_add_prediction(pdf, pred)
+
+    # Save
+    path = _get_report_path()
+    pdf.output(path)
+    print(f"  PDF report saved to: {path}")
+
+
+def generate_multiround_pdf_report(
+    num_rounds: int,
+    round_data: list[dict],
+    scenario: dict,
+) -> None:
+    """Generate a PDF report for multi-round simulation results."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=20)
+
+    # Title
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "Silicon Sandbox", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("Helvetica", "", 12)
+    pdf.cell(0, 8, f"Multi-Round Simulation ({num_rounds} rounds)", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(4)
+
+    # Scenario summary
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, "Scenario", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, _sanitize(f"Industry: {scenario['environment']['industry']}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, "SME Move:", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(pdf.l_margin + 10)
+    pdf.multi_cell(0, 5, _sanitize(scenario["sme_move"]["description"]))
+    pdf.ln(4)
+
+    for round_num, rd in enumerate(round_data, 1):
+        # Round header
+        pdf.set_draw_color(100, 100, 100)
+        pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+        pdf.ln(4)
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 8, f"Round {round_num}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
+
+        if round_num == 1:
+            for pred in rd["predictions"]:
+                _pdf_add_prediction(pdf, pred)
+        else:
+            for adjustment, pred in rd["predictions"]:
+                label = _complexity_label(pred.complexity)
+                pdf.set_font("Helvetica", "I", 10)
+                pdf.cell(0, 6, f"SME Adjustment (responding to {label} incumbent):", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "", 10)
+                pdf.set_x(pdf.l_margin + 10)
+                pdf.multi_cell(0, 5, _sanitize(adjustment.adjusted_move))
+                pdf.ln(1)
+                pdf.set_font("Helvetica", "I", 10)
+                pdf.cell(0, 6, "SME Reasoning:", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "", 10)
+                pdf.set_x(pdf.l_margin + 10)
+                pdf.multi_cell(0, 5, _sanitize(adjustment.reasoning))
+                pdf.ln(3)
+                _pdf_add_prediction(pdf, pred)
+
+    # Save
+    path = _get_report_path()
+    pdf.output(path)
+    print(f"  PDF report saved to: {path}")
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
@@ -565,6 +727,7 @@ def main():
             predictions.append(pred)
 
         display_results(predictions)
+        generate_pdf_report(predictions, scenario)
     else:
         # --- Multi-round mode ---
         print(
@@ -657,6 +820,7 @@ def main():
             print()
 
         display_multiround_results(num_rounds, round_data)
+        generate_multiround_pdf_report(num_rounds, round_data, scenario)
 
 
 if __name__ == "__main__":

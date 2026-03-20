@@ -68,6 +68,10 @@ For each agent, the output shows:
 - **Timing**: immediate, short-term, or long-term
 - **Reasoning**: 2–3 sentences explaining the agent's assessment
 
+## PDF Report
+
+A PDF report is automatically saved to your `~/Downloads` folder when the simulation finishes. The file is named `silicon_sandbox_report_<timestamp>.pdf` and contains the full scenario summary and all predictions.
+
 ## Requirements
 
 - Python 3.9+
