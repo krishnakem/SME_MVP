@@ -18,7 +18,7 @@ import json
 import os
 import sys
 import textwrap
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -57,6 +57,16 @@ class SMEAdjustment:
     adjusted_move: str
     move_type: str
     reasoning: str
+
+
+def _prediction_from_dict(d: dict) -> Prediction:
+    """Rehydrate a Prediction serialized with dataclasses.asdict()."""
+    return Prediction(**d)
+
+
+def _adjustment_from_dict(d: dict) -> SMEAdjustment:
+    """Rehydrate an SMEAdjustment serialized with dataclasses.asdict()."""
+    return SMEAdjustment(**d)
 
 
 # ---------------------------------------------------------------------------
@@ -172,10 +182,14 @@ SME_AGENT_PROMPT = textwrap.dedent("""\
 
 
 # ---------------------------------------------------------------------------
-# Default scenario file path
+# Default scenario and demo cache file paths
 # ---------------------------------------------------------------------------
 
-SCENARIO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_scenario.json")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SCENARIO_PATH = os.path.join(BASE_DIR, "demo_scenario.json")
+DEMO_CACHE_DIR = os.path.join(BASE_DIR, "demo_cache")
+SINGLE_ROUND_CACHE_PATH = os.path.join(DEMO_CACHE_DIR, "single_round.json")
+MULTI_ROUND_CACHE_PATH = os.path.join(DEMO_CACHE_DIR, "multi_round.json")
 
 
 # ---------------------------------------------------------------------------
@@ -561,7 +575,11 @@ def _pdf_add_prediction(pdf: FPDF, pred: Prediction) -> None:
     pdf.ln(4)
 
 
-def generate_pdf_report(predictions: list[Prediction], scenario: dict) -> None:
+def generate_pdf_report(
+    predictions: list[Prediction],
+    scenario: dict,
+    header_note: str | None = None,
+) -> None:
     """Generate a PDF report for single-round simulation results."""
     pdf = FPDF()
     pdf.add_page()
@@ -572,6 +590,9 @@ def generate_pdf_report(predictions: list[Prediction], scenario: dict) -> None:
     pdf.cell(0, 10, "Silicon Sandbox", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.set_font("Helvetica", "", 12)
     pdf.cell(0, 8, "Incumbent Retaliation Predictions", new_x="LMARGIN", new_y="NEXT", align="C")
+    if header_note:
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.cell(0, 6, _sanitize(header_note), new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(4)
 
     # Scenario summary
@@ -607,6 +628,7 @@ def generate_multiround_pdf_report(
     num_rounds: int,
     round_data: list[dict],
     scenario: dict,
+    header_note: str | None = None,
 ) -> None:
     """Generate a PDF report for multi-round simulation results."""
     pdf = FPDF()
@@ -618,6 +640,9 @@ def generate_multiround_pdf_report(
     pdf.cell(0, 10, "Silicon Sandbox", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.set_font("Helvetica", "", 12)
     pdf.cell(0, 8, f"Multi-Round Simulation ({num_rounds} rounds)", new_x="LMARGIN", new_y="NEXT", align="C")
+    if header_note:
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.cell(0, 6, _sanitize(header_note), new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(4)
 
     # Scenario summary
@@ -675,6 +700,79 @@ def load_scenario(path: str) -> dict:
         return json.load(f)
 
 
+def _load_json(path: str) -> object:
+    """Load a JSON fixture from disk."""
+    with open(path, "r") as f:
+        return json.load(f)
+
+
+def _write_json(path: str, payload: object) -> None:
+    """Write a JSON fixture to disk."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2)
+        f.write("\n")
+
+
+def _serialize_multiround_cache(round_data: list[dict]) -> list[dict]:
+    """Serialize multi-round data while preserving flat vs tuple round shapes."""
+    serialized = []
+    for round_num, rd in enumerate(round_data, 1):
+        if round_num == 1:
+            predictions = [asdict(pred) for pred in rd["predictions"]]
+            shape = "flat"
+        else:
+            predictions = [
+                {
+                    "adjustment": asdict(adjustment),
+                    "prediction": asdict(pred),
+                }
+                for adjustment, pred in rd["predictions"]
+            ]
+            shape = "adjusted"
+
+        serialized.append({
+            "round": round_num,
+            "shape": shape,
+            "sme_move": rd.get("sme_move"),
+            "predictions": predictions,
+        })
+    return serialized
+
+
+def _load_multiround_cache(path: str) -> list[dict]:
+    """Load multi-round demo data and rebuild the renderer's runtime shape."""
+    raw_rounds = _load_json(path)
+    round_data = []
+
+    for round_num, rd in enumerate(raw_rounds, 1):
+        shape = rd.get("shape")
+        if shape == "flat":
+            predictions = [
+                _prediction_from_dict(pred)
+                for pred in rd["predictions"]
+            ]
+        elif shape == "adjusted":
+            predictions = [
+                (
+                    _adjustment_from_dict(entry["adjustment"]),
+                    _prediction_from_dict(entry["prediction"]),
+                )
+                for entry in rd["predictions"]
+            ]
+        else:
+            raise ValueError(
+                f"Unsupported demo cache shape in round {round_num}: {shape!r}"
+            )
+
+        round_data.append({
+            "sme_move": rd.get("sme_move"),
+            "predictions": predictions,
+        })
+
+    return round_data
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=(
@@ -695,7 +793,46 @@ def main():
         help="Number of simulation rounds (default: 1). Multi-round simulations "
              "add SME agent reactions and incumbent follow-up responses.",
     )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Replay a recorded run from demo_cache/. No API key or network required.",
+    )
+    parser.add_argument(
+        "--capture-demo",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
+    num_rounds = max(1, args.rounds)
+
+    if args.demo and args.capture_demo:
+        parser.error("--demo and --capture-demo cannot be used together.")
+
+    if args.demo:
+        print("\n>>> DEMO MODE - replaying a recorded run. No live API calls.")
+        print(">>> To run live: unset --demo and set OPENAI_API_KEY.\n")
+
+        scenario = load_scenario(SCENARIO_PATH)
+        demo_note = "Recorded demo replay: predictions were loaded from disk; no live API calls were made."
+
+        if num_rounds > 1:
+            round_data = _load_multiround_cache(MULTI_ROUND_CACHE_PATH)
+            display_multiround_results(len(round_data), round_data)
+            generate_multiround_pdf_report(
+                len(round_data),
+                round_data,
+                scenario,
+                header_note=demo_note,
+            )
+        else:
+            preds = [
+                _prediction_from_dict(pred)
+                for pred in _load_json(SINGLE_ROUND_CACHE_PATH)
+            ]
+            display_results(preds)
+            generate_pdf_report(preds, scenario, header_note=demo_note)
+        return
 
     # Validate API key
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -712,7 +849,6 @@ def main():
 
     # Create agents and run simulation
     agents = create_agents(scenario)
-    num_rounds = max(1, args.rounds)
 
     if num_rounds == 1:
         # --- Single-round mode (original behavior) ---
@@ -728,6 +864,9 @@ def main():
 
         display_results(predictions)
         generate_pdf_report(predictions, scenario)
+        if args.capture_demo:
+            _write_json(SINGLE_ROUND_CACHE_PATH, [asdict(pred) for pred in predictions])
+            print(f"  Demo cache saved to: {SINGLE_ROUND_CACHE_PATH}")
     else:
         # --- Multi-round mode ---
         print(
@@ -821,6 +960,9 @@ def main():
 
         display_multiround_results(num_rounds, round_data)
         generate_multiround_pdf_report(num_rounds, round_data, scenario)
+        if args.capture_demo:
+            _write_json(MULTI_ROUND_CACHE_PATH, _serialize_multiround_cache(round_data))
+            print(f"  Demo cache saved to: {MULTI_ROUND_CACHE_PATH}")
 
 
 if __name__ == "__main__":

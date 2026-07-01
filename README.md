@@ -4,8 +4,14 @@
 
 ```bash
 pip3 install -r requirements.txt
+python3 silicon_sandbox.py --demo      # replays a recorded run, writes a PDF report
+```
+
+To run a live simulation instead of the recorded offline demo:
+
+```bash
 export OPENAI_API_KEY='your-key-here'
-python3 silicon_sandbox.py            # runs demo_scenario.json, writes a PDF report
+python3 silicon_sandbox.py             # runs demo_scenario.json, writes a PDF report
 ```
 
 ---
@@ -38,7 +44,8 @@ A PDF report lands in `~/Downloads` at the end of every run.
 ## Multi-round mode
 
 ```bash
-python3 silicon_sandbox.py --rounds 3
+python3 silicon_sandbox.py --demo --rounds 3   # offline recorded replay
+python3 silicon_sandbox.py --rounds 3          # live run, requires OPENAI_API_KEY
 ```
 
 - **Round 1** — each complexity level predicts the incumbent's first response.

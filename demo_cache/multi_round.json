@@ -1,0 +1,137 @@
+[
+  {
+    "round": 1,
+    "shape": "flat",
+    "sme_move": "Framework, a startup with ~$33M in annual revenue and 127 employees, launches an aggressive push into the mainstream laptop market. Their Laptop 13 starts at $769 and their Laptop 16 at $1,299 -- both fully modular with user-swappable RAM, SSD, mainboard, GPU module, and expansion cards. Framework is positioning repairability and upgradeability as a direct alternative to Apple's closed ecosystem, targeting tech enthusiasts, developers, and environmentally conscious consumers who are frustrated with planned obsolescence. Their marketing emphasizes that a single Framework laptop can last a decade through component upgrades, versus Apple's 4-5 year replacement cycle.",
+    "predictions": [
+      {
+        "agent_name": "Apple Inc. (Mac Division)",
+        "complexity": "simple",
+        "response_type": "ignore",
+        "intensity": 2,
+        "timing": "short-term",
+        "reasoning": "Framework is small relative to Mac revenue and is not undercutting Apple on the core premium ecosystem proposition. Monitor enthusiast chatter and channel data, but treat this as a niche hardware preference rather than a direct volume threat."
+      },
+      {
+        "agent_name": "Apple Inc. (Mac Division)",
+        "complexity": "moderate",
+        "response_type": "differentiate",
+        "intensity": 3,
+        "timing": "short-term",
+        "reasoning": "Framework could pull developers, students, and repair-conscious buyers out of Apple's entry premium funnel. Emphasize battery life, resale value, performance per watt, and campus pricing while selectively improving trade-in and repair messaging."
+      },
+      {
+        "agent_name": "Apple Inc. (Mac Division)",
+        "complexity": "complex",
+        "response_type": "escalate",
+        "intensity": 4,
+        "timing": "immediate",
+        "reasoning": "The threat is not current share loss; it is a narrative that reframes closed integration as wasteful and anti-consumer. Respond with coordinated product, policy, and messaging moves: expand self-service repair optics, reinforce silicon advantages, and prevent Framework from becoming the symbolic center of right-to-repair computing."
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "shape": "adjusted",
+    "sme_move": null,
+    "predictions": [
+      {
+        "adjustment": {
+          "adjusted_move": "Framework stays focused on the developer and repair enthusiast niche, publishing upgrade-cost comparisons and community repair stories rather than chasing mass-market advertising.",
+          "move_type": "continue",
+          "reasoning": "Because Apple is mostly monitoring, Framework can compound credibility with its core audience before Apple treats the move as urgent. The lowest-cost path is to make the total-cost-of-ownership contrast concrete."
+        },
+        "prediction": {
+          "agent_name": "Apple Inc. (Mac Division)",
+          "complexity": "simple",
+          "response_type": "match",
+          "intensity": 2,
+          "timing": "short-term",
+          "reasoning": "If Framework keeps emphasizing lower lifetime cost, Apple should answer with limited education discounts and trade-in offers, not a broad product change. The response should protect entry-level demand without legitimizing modularity as the main comparison."
+        }
+      },
+      {
+        "adjustment": {
+          "adjusted_move": "Framework partners with universities, coding bootcamps, and sustainability groups to frame modular laptops as the practical choice for students and early-career developers.",
+          "move_type": "adjust",
+          "reasoning": "Apple's likely differentiation campaign is strongest in broad premium messaging, so Framework should concentrate where repairability, price, and identity overlap. Segment partnerships let Framework grow without matching Apple's media budget."
+        },
+        "prediction": {
+          "agent_name": "Apple Inc. (Mac Division)",
+          "complexity": "moderate",
+          "response_type": "differentiate",
+          "intensity": 3,
+          "timing": "immediate",
+          "reasoning": "Framework is now attacking a recognizable funnel: students and developers who later become high-value ecosystem users. Apple should strengthen campus bundles, developer performance messaging, and trade-in financing while avoiding direct repairability comparisons."
+        }
+      },
+      {
+        "adjustment": {
+          "adjusted_move": "Framework escalates the narrative by launching a public repairability pledge, third-party module marketplace, and creator campaign showing decade-long upgrade paths.",
+          "move_type": "escalate",
+          "reasoning": "If Apple responds across policy and messaging, Framework must turn repairability into a movement that is costly to dismiss. A partner marketplace also signals that modularity is an ecosystem, not a one-product feature."
+        },
+        "prediction": {
+          "agent_name": "Apple Inc. (Mac Division)",
+          "complexity": "complex",
+          "response_type": "legal",
+          "intensity": 4,
+          "timing": "immediate",
+          "reasoning": "A third-party module marketplace raises quality, safety, and IP control issues that Apple can use to shift the conversation from repairability to reliability and trust. Pair legal and standards pressure with a selective self-service repair expansion to blunt the movement without conceding the modular architecture."
+        }
+      }
+    ]
+  },
+  {
+    "round": 3,
+    "shape": "adjusted",
+    "sme_move": null,
+    "predictions": [
+      {
+        "adjustment": {
+          "adjusted_move": "Framework publishes a calculator comparing MacBook ownership costs against upgradeable configurations and offers a small student referral credit.",
+          "move_type": "adjust",
+          "reasoning": "Apple's modest pricing response makes the comparison financial, so Framework should make replacement-cycle economics easy to understand. A referral credit is affordable and reinforces community-led growth."
+        },
+        "prediction": {
+          "agent_name": "Apple Inc. (Mac Division)",
+          "complexity": "simple",
+          "response_type": "match",
+          "intensity": 3,
+          "timing": "immediate",
+          "reasoning": "A cost calculator can create a clearer price objection among budget-sensitive buyers. Apple should counter with stronger trade-in and financing offers while keeping the core MacBook price architecture intact."
+        }
+      },
+      {
+        "adjustment": {
+          "adjusted_move": "Framework releases developer-focused benchmarks that include repair downtime, battery replacement cost, and Linux support alongside raw performance.",
+          "move_type": "differentiate",
+          "reasoning": "Apple is defending performance and ecosystem value, so Framework should broaden the scorecard to dimensions where modularity changes daily ownership. This keeps the debate from collapsing into chip speed alone."
+        },
+        "prediction": {
+          "agent_name": "Apple Inc. (Mac Division)",
+          "complexity": "moderate",
+          "response_type": "differentiate",
+          "intensity": 4,
+          "timing": "short-term",
+          "reasoning": "Framework is making the developer segment compare ownership experience, not just purchase price. Apple should foreground Xcode, battery life, resale value, and support quality while quietly improving repair turnaround for common MacBook issues."
+        }
+      },
+      {
+        "adjustment": {
+          "adjusted_move": "Framework recruits independent repair shops and component suppliers into a certification program, making modular laptops feel like an open standard with accountable quality controls.",
+          "move_type": "pivot",
+          "reasoning": "Apple's legal and trust framing can be neutralized if Framework shows governance, certification, and responsible supply participation. The move turns the ecosystem argument back against Apple without pretending Framework can match Apple's scale."
+        },
+        "prediction": {
+          "agent_name": "Apple Inc. (Mac Division)",
+          "complexity": "complex",
+          "response_type": "escalate",
+          "intensity": 5,
+          "timing": "short-term",
+          "reasoning": "A certified repair-and-module network makes Framework's threat institutional rather than merely symbolic. Apple should escalate through supplier relationship management, sustainability disclosures, enhanced self-service repair coverage, and developer messaging that reframes closed integration as the source of reliability and long-term value."
+        }
+      }
+    ]
+  }
+]

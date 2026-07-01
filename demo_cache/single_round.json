@@ -1,0 +1,26 @@
+[
+  {
+    "agent_name": "Apple Inc. (Mac Division)",
+    "complexity": "simple",
+    "response_type": "ignore",
+    "intensity": 2,
+    "timing": "short-term",
+    "reasoning": "Framework is small relative to Mac revenue and is not undercutting Apple on the core premium ecosystem proposition. Monitor enthusiast chatter and channel data, but treat this as a niche hardware preference rather than a direct volume threat."
+  },
+  {
+    "agent_name": "Apple Inc. (Mac Division)",
+    "complexity": "moderate",
+    "response_type": "differentiate",
+    "intensity": 3,
+    "timing": "short-term",
+    "reasoning": "Framework could pull developers, students, and repair-conscious buyers out of Apple's entry premium funnel. Emphasize battery life, resale value, performance per watt, and campus pricing while selectively improving trade-in and repair messaging."
+  },
+  {
+    "agent_name": "Apple Inc. (Mac Division)",
+    "complexity": "complex",
+    "response_type": "escalate",
+    "intensity": 4,
+    "timing": "immediate",
+    "reasoning": "The threat is not current share loss; it is a narrative that reframes closed integration as wasteful and anti-consumer. Respond with coordinated product, policy, and messaging moves: expand self-service repair optics, reinforce silicon advantages, and prevent Framework from becoming the symbolic center of right-to-repair computing."
+  }
+]
