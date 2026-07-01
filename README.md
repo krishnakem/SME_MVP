@@ -1,78 +1,86 @@
-# Silicon Sandbox MVP
+# Silicon Sandbox — SME MVP (LLM branch)
 
-**Proof-of-concept CLI for simulating incumbent retaliation to SME competitive moves.**
-
-LLM-based agents, each configured with a different level of *representational complexity*, produce meaningfully different retaliation predictions when presented with the same competitive scenario. The key variable is the agent's cognitive profile — how broadly or narrowly it represents the competitive landscape.
-
-## Quick Start
+**Ask "how would the incumbent fight back?" before you make the move — and get three different answers depending on how smart you assume the incumbent is.**
 
 ```bash
-# 1. Install dependencies
 pip3 install -r requirements.txt
-
-# 2. Set your OpenAI API key
 export OPENAI_API_KEY='your-key-here'
-
-# 3. Run the simulation
-python3 silicon_sandbox.py
+python3 silicon_sandbox.py            # runs demo_scenario.json, writes a PDF report
 ```
 
-## Usage
+---
 
-The simulation loads its scenario from `demo_scenario.json` in the same directory. Edit that file to change the industry, incumbents, or SME move.
+## The idea
 
-### Model Selection
+When a small business makes a competitive move, the thing that kills it isn't usually the move — it's the *retaliation* it didn't see coming. This tool simulates that retaliation with LLM agents standing in for the incumbents.
 
-Switch the underlying LLM (default: `gpt-5`):
+The core mechanic is **representational complexity**: the same incumbent is instantiated at three cognitive levels, and each one produces a *meaningfully different* prediction for the identical scenario. A price-only thinker and a multi-dimensional thinker don't just disagree on intensity — from round 2 they diverge into completely separate interaction chains.
 
-```bash
-python3 silicon_sandbox.py --model gpt-5-mini
-```
+| Complexity | What the incumbent agent reasons over |
+| --- | --- |
+| **LOW** | Direct price competition and immediate market share, nothing else |
+| **MODERATE** | Price, market share, and customer-segment dynamics |
+| **HIGH** | Price, brand, supply chain, talent, regulation, long-term trajectory |
 
-### Multi-Round Simulation
+This is grounded in the strategic-representations research program — the finding that a decision-maker's *mental model* of competition, not just the facts, drives the choice they make. Here that theory is executable.
 
-Run multiple rounds of competitive interaction where the SME and incumbents react to each other:
+## What you get per agent
+
+Each agent returns a structured `Prediction`, not prose:
+
+- **Response type** — `ignore` / `match` / `escalate` / `differentiate` / `acquire` / `legal`
+- **Intensity** — 1–5 resource commitment
+- **Timing** — immediate / short-term / long-term
+- **Reasoning** — 2–3 sentences of justification
+
+A PDF report lands in `~/Downloads` at the end of every run.
+
+## Multi-round mode
 
 ```bash
 python3 silicon_sandbox.py --rounds 3
 ```
 
-In multi-round mode:
-- **Round 1** runs the same as the default single-round simulation.
-- **Round 2+** introduces an SME agent that evaluates each incumbent's previous response and decides its next move (continue, adjust, escalate, retreat, or pivot). Each incumbent then responds to the SME's adjustment with full conversation history carried forward.
-- Since the SME reacts differently to each incumbent's response, each complexity level becomes its own independent interaction chain from Round 2 onward. This shows how the incumbent's cognitive configuration shapes the entire trajectory of the competitive interaction.
+- **Round 1** — each complexity level predicts the incumbent's first response.
+- **Round 2+** — an SME agent reads each incumbent's last move and decides its own next step (continue / adjust / escalate / retreat / pivot). Because the SME reacts differently to each incumbent, **every complexity level becomes its own independent trajectory** with full history carried forward. That's the payoff: you see how the incumbent's cognitive configuration shapes the *entire* competitive arc, not just one turn.
 
-### Scenario Format
+## Scenarios
 
-See `demo_scenario.json` for the expected structure:
+The run reads `demo_scenario.json`. Swap in your own industry, incumbents, and move:
 
-- `environment.industry` — description of the industry
-- `environment.market_structure` — how the market is organized
-- `environment.incumbents[]` — list of incumbents, each with `name` and `description`
-- `sme_move.description` — what the SME is doing
-- `sme_move.move_type` — short label for the move
+```jsonc
+{
+  "environment": {
+    "industry": "...",
+    "market_structure": "...",
+    "incumbents": [{ "name": "...", "description": "..." }]
+  },
+  "sme_move": { "description": "...", "move_type": "..." }
+}
+```
 
-## Understanding the Output
+The bundled demo pits **Framework** (modular, repairable laptops) against **Apple** — a real, concrete asymmetry that makes the complexity levels diverge in an intuitive way.
 
-The system creates **three versions** of each incumbent, each with a different cognitive profile:
+## Model selection
 
-| Complexity Level | What the Agent Considers |
-|---|---|
-| **LOW** (Simple) | Direct price competition and immediate market share only |
-| **MODERATE** | Price, market share, and customer segment dynamics |
-| **HIGH** (Complex) | Price, brand, supply chain, talent, regulatory, long-term trajectory |
-
-For each agent, the output shows:
-- **Response type**: ignore, match, escalate, differentiate, acquire, or legal
-- **Intensity**: 1–5 scale of resource commitment
-- **Timing**: immediate, short-term, or long-term
-- **Reasoning**: 2–3 sentences explaining the agent's assessment
-
-## PDF Report
-
-A PDF report is automatically saved to your `~/Downloads` folder when the simulation finishes. The file is named `silicon_sandbox_report_<timestamp>.pdf` and contains the full scenario summary and all predictions.
+```bash
+python3 silicon_sandbox.py --model gpt-5-mini   # default: gpt-5
+```
 
 ## Requirements
 
 - Python 3.9+
-- OpenAI API key with access to `gpt-5` (or chosen model)
+- OpenAI API key with access to your chosen model
+
+## How this fits the larger project
+
+This is the **LLM branch** of Silicon Sandbox — my venture exploring whether agent-based simulation can let SMEs war-game competitive moves the way only large firms can today.
+
+- **This repo** — interpretable competitor reasoning via LLM agents with explicit cognitive profiles.
+- **[JEPA-Silicon-Sandbox](https://github.com/krishnakem/JEPA-Silicon-Sandbox)** — the same thesis pursued with a learned latent world model instead of an LLM.
+
+Running both branches side by side is deliberate: it's how I'm testing which representation better predicts real incumbent retaliation, work I'm continuing as a research assistant at the Ross School of Business.
+
+## License
+
+See repository. Research/portfolio use.
